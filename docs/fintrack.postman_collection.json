@@ -1,0 +1,2130 @@
+{
+  "info": {
+    "_postman_id": "f1a7c3d2-9b64-4f10-9d55-fintrack00001",
+    "name": "FinTrack API",
+    "description": "# FinTrack API\n\nPersonal finance tracker: users own accounts, accounts hold transactions,\ncategories classify them.\n\n## How to run this collection\n\n1. Import `docs/fintrack.postman_environment.json` and select it.\n2. Set `base_url` to your local or deployed URL.\n3. Run **01 Auth > Login (user)** and **01 Auth > Login (admin)** first - their\n   test scripts write `access_token` and `admin_token` into the environment,\n   and every other request reads them from there.\n4. Everything else can then be run in order, or with the Collection Runner.\n\nAll seeded users share the password `Password123!`.\n\n## Folder 06\n\nFolder **06 Security** contains the deliberately blocked requests: no token,\na foreign account id, a non-admin write, and the login rate limit.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "account_id",
+      "value": "4"
+    },
+    {
+      "key": "category_id",
+      "value": "5"
+    },
+    {
+      "key": "transaction_id",
+      "value": "18"
+    },
+    {
+      "key": "user_id",
+      "value": "2"
+    }
+  ],
+  "item": [
+    {
+      "name": "00 Service",
+      "description": "Public routes. Useful for verifying a fresh deployment.",
+      "item": [
+        {
+          "name": "GET / (service index)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": []
+            },
+            "description": "Public. Lists every endpoint the API exposes.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('is FinTrack', function () {",
+                  "  pm.expect(pm.response.json().name).to.eql('FinTrack API');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Public. Pings the database, so it fails loudly when DATABASE_URL is wrong - the first thing to check after a redeploy.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('database is up', function () {",
+                  "  pm.expect(pm.response.json().database).to.eql('up');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 Auth",
+      "description": "Register, log in, and prove the token works. Run the two logins first.",
+      "item": [
+        {
+          "name": "POST /auth/register (success)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Public sign-up. There is no `role` field - everyone registered here is a plain user.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nadia Putri\",\n  \"email\": \"nadia@example.com\",\n  \"password\": \"Password123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('no password hash anywhere in the response', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('$2b$');",
+                  "  pm.expect(pm.response.text()).to.not.include('\"password\"');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/register (400 - tries to self-promote)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "VALIDATION ERROR. RegisterDto has no `role`, and forbidNonWhitelisted turns the extra property into a 400 rather than silently dropping it.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sneaky\",\n  \"email\": \"sneaky@example.com\",\n  \"password\": \"Password123!\",\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('names the offending property', function () {",
+                  "  pm.expect(pm.response.json().message).to.include('property role should not exist');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login (user) -> saves access_token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "RUN THIS FIRST. Stores the token in the environment as `access_token`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"budi@example.com\",\n  \"password\": \"Password123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('returns a bearer token', function () {",
+                  "  pm.expect(body.access_token).to.be.a('string');",
+                  "  pm.expect(body.token_type).to.eql('Bearer');",
+                  "});",
+                  "pm.test('no password hash anywhere in the response', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('$2b$');",
+                  "  pm.expect(pm.response.text()).to.not.include('\"password\"');",
+                  "});",
+                  "pm.environment.set('access_token', body.access_token);",
+                  "pm.environment.set('user_id', body.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login (admin) -> saves admin_token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "RUN THIS SECOND. Stores the admin token as `admin_token`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@fintrack.test\",\n  \"password\": \"Password123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('is an admin', function () {",
+                  "  pm.expect(body.user.role).to.eql('admin');",
+                  "});",
+                  "pm.environment.set('admin_token', body.access_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login (400 - malformed body)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "VALIDATION ERROR from the global ValidationPipe.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('reports both fields', function () {",
+                  "  const message = pm.response.json().message;",
+                  "  pm.expect(message).to.include('email must be a valid email address');",
+                  "  pm.expect(message).to.include('password must not be empty');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login (401 - wrong password)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "The message is identical to the one for an unknown email, so login cannot be used to discover which addresses have accounts.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"budi@example.com\",\n  \"password\": \"WrongPassword1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('gives nothing away', function () {",
+                  "  pm.expect(pm.response.json().message).to.eql('Invalid email or password');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /auth/me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Proves the saved token works. Returns the caller with their accounts."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('no password hash anywhere in the response', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('$2b$');",
+                  "  pm.expect(pm.response.text()).to.not.include('\"password\"');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 Users",
+      "description": "List/create are admin-only. Reading or editing one user is self-or-admin.",
+      "item": [
+        {
+          "name": "GET /users (admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('no password hash anywhere in the response', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('$2b$');",
+                  "  pm.expect(pm.response.text()).to.not.include('\"password\"');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /users/:id (relational: nested accounts)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": "The `include` query: user -> accounts -> per-account transaction count, in one round trip."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('nests the accounts', function () {",
+                  "  pm.expect(pm.response.json().accounts).to.be.an('array');",
+                  "});",
+                  "pm.test('no password hash anywhere in the response', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('$2b$');",
+                  "  pm.expect(pm.response.text()).to.not.include('\"password\"');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /users (admin - creates another admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "description": "The only route that can mint an admin.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ops Auditor\",\n  \"email\": \"auditor@fintrack.test\",\n  \"password\": \"Password123!\",\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('no password hash anywhere in the response', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('$2b$');",
+                  "  pm.expect(pm.response.text()).to.not.include('\"password\"');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /users (400 - weak password)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "description": "VALIDATION ERROR: length and complexity rules from CreateUserDto.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Weak\",\n  \"email\": \"weak@example.com\",\n  \"password\": \"short\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('explains the password policy', function () {",
+                  "  pm.expect(JSON.stringify(pm.response.json().message)).to.include('password must be at least 8 characters long');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /users/:id (rename yourself)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Budi S. Santoso\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('no password hash anywhere in the response', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('$2b$');",
+                  "  pm.expect(pm.response.text()).to.not.include('\"password\"');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /users/:id (admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/5",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "5"
+              ]
+            },
+            "description": "Cascades to the user accounts and their transactions. Point it at the user created by POST /auth/register.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 Accounts",
+      "description": "All routes are scoped to the caller. `user_id` comes from the token.",
+      "item": [
+        {
+          "name": "POST /accounts (success)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts"
+              ]
+            },
+            "description": "A new account always starts at 0.00; balance is derived from transactions.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bibit Investasi\",\n  \"type\": \"bank\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('starts empty', function () {",
+                  "  pm.expect(pm.response.json().balance).to.eql(0);",
+                  "});",
+                  "pm.environment.set('new_account_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /accounts (400 - tries to set a balance)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts"
+              ]
+            },
+            "description": "VALIDATION ERROR. balance is not in CreateAccountDto, so forbidNonWhitelisted rejects it instead of quietly ignoring it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rekening Baru\",\n  \"type\": \"bank\",\n  \"balance\": 999999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('rejects the extra field', function () {",
+                  "  pm.expect(pm.response.json().message).to.include('property balance should not exist');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /accounts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/accounts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts"
+              ]
+            },
+            "description": "A user sees only their own accounts; an admin sees all of them."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /accounts/:id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/accounts/{{account_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "{{account_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /accounts/:id/transactions (relational: nested category)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/accounts/{{account_id}}/transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "{{account_id}}",
+                "transactions"
+              ]
+            },
+            "description": "The account plus its transactions, each carrying its nested category."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('transactions carry their category', function () {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.transactions).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /accounts/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts/{{account_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "{{account_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"BCA Payroll (utama)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /accounts/:id",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/accounts/{{new_account_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "{{new_account_id}}"
+              ]
+            },
+            "description": "Cascades to that account transactions. Deletes the one created above."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /accounts/:id/recalculate-balance (admin)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/accounts/{{account_id}}/recalculate-balance",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "{{account_id}}",
+                "recalculate-balance"
+              ]
+            },
+            "description": "Admin-only repair action: rebuilds the cached balance from the transaction history and reports the drift it corrected.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('reports the drift', function () {",
+                  "  pm.expect(pm.response.json()).to.have.property('drift_corrected');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 Categories",
+      "description": "Shared reference data. Any user can read; only an admin can write (RBAC).",
+      "item": [
+        {
+          "name": "GET /categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "Includes transaction_count, which is 0 for the categories nobody has used - the same rows the LEFT JOIN in db/queries.sql surfaces."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /categories/:id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories/{{category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{category_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /categories (admin - success)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Education\",\n  \"type\": \"expense\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.environment.set('new_category_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /categories (400 - invalid type)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "VALIDATION ERROR. categories.type is income|expense only - transactions.type is the enum that also allows transfer.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Broken\",\n  \"type\": \"transfer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('lists the allowed values', function () {",
+                  "  pm.expect(pm.response.json().message).to.include('type must be one of: income, expense');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /categories/:id (admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/categories/{{new_category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{new_category_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Education & Courses\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /categories/:id (admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories/{{new_category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{new_category_id}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /categories/:id (409 - still in use)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories/{{category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{category_id}}"
+              ]
+            },
+            "description": "ON DELETE RESTRICT refuses to orphan the transactions that reference this category.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 409', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test('says why', function () {",
+                  "  pm.expect(pm.response.json().message).to.include('still used by existing transactions');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 Transactions",
+      "description": "Full CRUD. Every write recalculates the owning account balance inside one database transaction.",
+      "item": [
+        {
+          "name": "POST /transactions (expense - subtracts)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            },
+            "description": "Check GET /accounts/3 afterwards: the balance drops by exactly 46 500.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": 3,\n  \"category_id\": 7,\n  \"type\": \"expense\",\n  \"amount\": 46500,\n  \"description\": \"Nasi padang\",\n  \"transaction_date\": \"2026-08-20\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "pm.environment.set('new_transaction_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /transactions (income - adds)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": 3,\n  \"category_id\": 2,\n  \"type\": \"income\",\n  \"amount\": 1250000,\n  \"description\": \"Freelance payment\",\n  \"transaction_date\": \"2026-08-21\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /transactions (transfer - balance-neutral, no category)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            },
+            "description": "A transfer carries no category. The canonical schema has no destination column, so a transfer does not move this account balance - see \"Known limitations\" in the README.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": 3,\n  \"type\": \"transfer\",\n  \"amount\": 200000,\n  \"description\": \"Move to GoPay\",\n  \"transaction_date\": \"2026-08-21\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /transactions (400 - three broken rules at once)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            },
+            "description": "VALIDATION ERROR: bad enum, non-positive amount, and a date that matches the format but does not exist.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": 4,\n  \"category_id\": 5,\n  \"type\": \"purchase\",\n  \"amount\": -5,\n  \"transaction_date\": \"2026-02-30\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('reports all three', function () {",
+                  "  const message = JSON.stringify(pm.response.json().message);",
+                  "  pm.expect(message).to.include('type must be one of');",
+                  "  pm.expect(message).to.include('amount must be greater than 0');",
+                  "  pm.expect(message).to.include('real calendar date');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /transactions (400 - income category on an expense)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            },
+            "description": "Domain rule beyond what a CHECK constraint can express: the category type has to agree with the transaction type.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": 4,\n  \"category_id\": 1,\n  \"type\": \"expense\",\n  \"amount\": 1000,\n  \"transaction_date\": \"2026-08-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('explains the mismatch', function () {",
+                  "  pm.expect(pm.response.json().message).to.include('cannot be used on a expense transaction');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/transactions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transactions"
+              ]
+            },
+            "description": "Only transactions on accounts the caller owns."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /transactions (filtered)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/transactions?type=expense&from=2026-07-01&to=2026-07-31",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "expense"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-07-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-07-31"
+                }
+              ]
+            },
+            "description": "Query parameters go through the same ValidationPipe as request bodies."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /transactions/:id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/transactions/{{transaction_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transactions",
+                "{{transaction_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /transactions/:id (amount - balance follows)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transactions/{{new_transaction_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transactions",
+                "{{new_transaction_id}}"
+              ]
+            },
+            "description": "Raising an expense from 46 500 to 52 000 takes another 5 500 off the account - the service applies the difference, not the new amount.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 52000,\n  \"description\": \"Nasi padang + es teh\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /transactions/:id (turn it into a transfer)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transactions/{{new_transaction_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transactions",
+                "{{new_transaction_id}}"
+              ]
+            },
+            "description": "An explicit null clears the category. Omitting the field would keep the old one and be rejected, because a transfer must not carry a category.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"transfer\",\n  \"category_id\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /transactions/:id (reverses the balance)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/transactions/{{new_transaction_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transactions",
+                "{{new_transaction_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 Security (blocked requests)",
+      "description": "The requests that are supposed to fail. Each one demonstrates a different control.",
+      "item": [
+        {
+          "name": "401 - no token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/accounts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts"
+              ]
+            },
+            "description": "JwtAuthGuard is global: a route is protected the moment it exists.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('asks for a token', function () {",
+                  "  pm.expect(pm.response.json().message).to.include('access token');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "401 - forged token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/accounts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts"
+              ]
+            },
+            "description": "The signature is checked before anything else happens.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOjEsInJvbGUiOiJhZG1pbiJ9.not-a-real-signature",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "403 - ownership: another user account",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/accounts/7",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "7"
+              ]
+            },
+            "description": "Account 7 belongs to Sari. Being logged in is not enough - AccountsService.findOwned checks accounts.user_id against the token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('blocked by ownership', function () {",
+                  "  pm.expect(pm.response.json().message).to.eql('You do not have access to this account');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "403 - RBAC: non-admin creating a category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "RolesGuard reads @Roles(Role.ADMIN) on the route.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hobbies\",\n  \"type\": \"expense\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test('blocked by role', function () {",
+                  "  pm.expect(pm.response.json().message).to.eql('This action requires the admin role');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "403 - RBAC: non-admin listing all users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "404 - account that does not exist",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/accounts/9999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "9999"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responds 404', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "429 - login rate limit (send 6 times)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Send this 6 times within a minute. The first five return 401, the sixth returns 429. The limiter is attached to POST /auth/login only, so ordinary CRUD traffic is never throttled - re-run GET /accounts afterwards to confirm.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"budi@example.com\",\n  \"password\": \"WrongPassword1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 while under the limit, 429 once over it', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([401, 429]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

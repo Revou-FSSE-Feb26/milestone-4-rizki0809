@@ -1,0 +1,72 @@
+// ===========================================================================
+// FinTrack - ERD source (DBML)
+// ---------------------------------------------------------------------------
+// Paste into https://dbdiagram.io to view or re-export the diagram.
+// docs/erd.png and docs/erd.svg are renderings of this same model, which is
+// itself a 1:1 restatement of db/schema.sql and prisma/schema.prisma.
+// ===========================================================================
+
+Table users {
+  id         serial       [pk, increment]
+  name       varchar(100) [not null]
+  email      varchar(255) [not null, unique]
+  password   varchar(255) [not null, note: 'bcrypt hash, never returned by the API']
+  role       varchar(10)  [not null, default: 'user', note: "CHECK role IN ('user','admin')"]
+  created_at timestamp    [not null, default: `CURRENT_TIMESTAMP`]
+
+  Note: 'A person using FinTrack. Owns accounts, and owns transactions transitively through them.'
+}
+
+Table accounts {
+  id         serial        [pk, increment]
+  user_id    integer       [not null, ref: > users.id]
+  name       varchar(100)  [not null]
+  type       varchar(10)   [not null, note: "CHECK type IN ('cash','bank','e-wallet')"]
+  balance    numeric(12,2) [not null, default: 0, note: 'Running balance maintained by the service layer']
+  created_at timestamp     [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    (user_id, name) [unique, name: 'accounts_user_id_name_key']
+    user_id [name: 'idx_accounts_user_id']
+  }
+
+  Note: 'Where money physically sits. NUMERIC, never FLOAT, so money never picks up rounding error.'
+}
+
+Table categories {
+  id   serial      [pk, increment]
+  name varchar(60) [not null]
+  type varchar(10) [not null, note: "CHECK type IN ('income','expense')"]
+
+  indexes {
+    (name, type) [unique, name: 'categories_name_type_key']
+  }
+
+  Note: 'Shared lookup table, not per-user. NOTE: this enum has no "transfer" - transactions.type is a different enum.'
+}
+
+Table transactions {
+  id               bigserial     [pk, increment]
+  account_id       integer       [not null, ref: > accounts.id]
+  category_id      integer       [null, ref: > categories.id]
+  type             varchar(10)   [not null, note: "CHECK type IN ('income','expense','transfer')"]
+  amount           numeric(12,2) [not null, note: 'CHECK amount > 0 - direction lives in `type`, not in the sign']
+  description      text          [null]
+  transaction_date date          [not null]
+  created_at       timestamp     [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    account_id       [name: 'idx_transactions_account_id']
+    category_id      [name: 'idx_transactions_category_id']
+    transaction_date [name: 'idx_transactions_date']
+  }
+
+  Note: '''
+  One money movement.
+  category_id is NULL only when type = 'transfer'
+  (CHECK transactions_category_required_check).
+  accounts_user_id_fkey and transactions_account_id_fkey are ON DELETE CASCADE;
+  transactions_category_id_fkey is ON DELETE RESTRICT, so a category still in
+  use cannot be deleted out from under its history.
+  '''
+}

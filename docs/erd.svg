@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 700" width="980" height="700" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif">
+  <style>
+    .bg          { fill: #ffffff; }
+    .title       { fill: #0f172a; font-size: 22px; font-weight: 700; }
+    .subtitle    { fill: #64748b; font-size: 13px; }
+    .table-body  { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; }
+    .table-name  { fill: #ffffff; font-size: 16px; font-weight: 700; letter-spacing: .4px; }
+    .row-rule    { stroke: #e2e8f0; stroke-width: 1; }
+    .col         { fill: #0f172a; font-size: 13px; }
+    .col-key     { font-weight: 700; }
+    .type        { fill: #64748b; font-size: 11px; }
+    .rel         { stroke: #475569; stroke-width: 2; fill: none; }
+    .card        { fill: #475569; font-size: 13px; font-weight: 700; }
+    .rel-label   { fill: #475569; font-size: 11px; }
+    .legend      { fill: #64748b; font-size: 11.5px; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="980" height="700"/>
+
+  <text x="60" y="36" class="title">FinTrack - Entity Relationship Diagram</text>
+  <text x="60" y="56" class="subtitle">PK = primary key &#183; FK = foreign key &#183; UQ = unique &#183; UQ* = composite unique (name, type) &#183; CHECK = enumerated values</text>
+
+  <g class="table">
+    <rect x="60" y="80" width="320" height="196" rx="10" class="table-body"/>
+    <path d="M 60 120 v -30 a 10 10 0 0 1 10 -10 h 300 a 10 10 0 0 1 10 10 v 30 z" fill="#2563eb"/>
+    <text x="76" y="106" class="table-name">users</text>
+    <text x="76" y="138" class="col col-key">id</text>
+    <text x="364" y="138" class="type" text-anchor="end">SERIAL  PK</text>
+    <line x1="60" y1="146" x2="380" y2="146" class="row-rule"/>
+    <text x="76" y="164" class="col">name</text>
+    <text x="364" y="164" class="type" text-anchor="end">VARCHAR(100)</text>
+    <line x1="60" y1="172" x2="380" y2="172" class="row-rule"/>
+    <text x="76" y="190" class="col">email</text>
+    <text x="364" y="190" class="type" text-anchor="end">VARCHAR(255)  UQ</text>
+    <line x1="60" y1="198" x2="380" y2="198" class="row-rule"/>
+    <text x="76" y="216" class="col">password</text>
+    <text x="364" y="216" class="type" text-anchor="end">VARCHAR(255)</text>
+    <line x1="60" y1="224" x2="380" y2="224" class="row-rule"/>
+    <text x="76" y="242" class="col">role</text>
+    <text x="364" y="242" class="type" text-anchor="end">VARCHAR(10) CHECK</text>
+    <line x1="60" y1="250" x2="380" y2="250" class="row-rule"/>
+    <text x="76" y="268" class="col">created_at</text>
+    <text x="364" y="268" class="type" text-anchor="end">TIMESTAMP</text>
+  </g>
+  <g class="table">
+    <rect x="60" y="390" width="320" height="196" rx="10" class="table-body"/>
+    <path d="M 60 430 v -30 a 10 10 0 0 1 10 -10 h 300 a 10 10 0 0 1 10 10 v 30 z" fill="#0d9488"/>
+    <text x="76" y="416" class="table-name">accounts</text>
+    <text x="76" y="448" class="col col-key">id</text>
+    <text x="364" y="448" class="type" text-anchor="end">SERIAL  PK</text>
+    <line x1="60" y1="456" x2="380" y2="456" class="row-rule"/>
+    <text x="76" y="474" class="col col-key">user_id</text>
+    <text x="364" y="474" class="type" text-anchor="end">INTEGER  FK</text>
+    <line x1="60" y1="482" x2="380" y2="482" class="row-rule"/>
+    <text x="76" y="500" class="col">name</text>
+    <text x="364" y="500" class="type" text-anchor="end">VARCHAR(100)</text>
+    <line x1="60" y1="508" x2="380" y2="508" class="row-rule"/>
+    <text x="76" y="526" class="col">type</text>
+    <text x="364" y="526" class="type" text-anchor="end">VARCHAR(10) CHECK</text>
+    <line x1="60" y1="534" x2="380" y2="534" class="row-rule"/>
+    <text x="76" y="552" class="col">balance</text>
+    <text x="364" y="552" class="type" text-anchor="end">NUMERIC(12,2)</text>
+    <line x1="60" y1="560" x2="380" y2="560" class="row-rule"/>
+    <text x="76" y="578" class="col">created_at</text>
+    <text x="364" y="578" class="type" text-anchor="end">TIMESTAMP</text>
+  </g>
+  <g class="table">
+    <rect x="520" y="80" width="380" height="118" rx="10" class="table-body"/>
+    <path d="M 520 120 v -30 a 10 10 0 0 1 10 -10 h 360 a 10 10 0 0 1 10 10 v 30 z" fill="#c026d3"/>
+    <text x="536" y="106" class="table-name">categories</text>
+    <text x="536" y="138" class="col col-key">id</text>
+    <text x="884" y="138" class="type" text-anchor="end">SERIAL  PK</text>
+    <line x1="520" y1="146" x2="900" y2="146" class="row-rule"/>
+    <text x="536" y="164" class="col">name</text>
+    <text x="884" y="164" class="type" text-anchor="end">VARCHAR(60)  UQ*</text>
+    <line x1="520" y1="172" x2="900" y2="172" class="row-rule"/>
+    <text x="536" y="190" class="col">type</text>
+    <text x="884" y="190" class="type" text-anchor="end">VARCHAR(10) CHECK  UQ*</text>
+  </g>
+  <g class="table">
+    <rect x="520" y="340" width="380" height="248" rx="10" class="table-body"/>
+    <path d="M 520 380 v -30 a 10 10 0 0 1 10 -10 h 360 a 10 10 0 0 1 10 10 v 30 z" fill="#ea580c"/>
+    <text x="536" y="366" class="table-name">transactions</text>
+    <text x="536" y="398" class="col col-key">id</text>
+    <text x="884" y="398" class="type" text-anchor="end">BIGSERIAL  PK</text>
+    <line x1="520" y1="406" x2="900" y2="406" class="row-rule"/>
+    <text x="536" y="424" class="col col-key">account_id</text>
+    <text x="884" y="424" class="type" text-anchor="end">INTEGER  FK</text>
+    <line x1="520" y1="432" x2="900" y2="432" class="row-rule"/>
+    <text x="536" y="450" class="col col-key">category_id</text>
+    <text x="884" y="450" class="type" text-anchor="end">INTEGER NULL  FK</text>
+    <line x1="520" y1="458" x2="900" y2="458" class="row-rule"/>
+    <text x="536" y="476" class="col">type</text>
+    <text x="884" y="476" class="type" text-anchor="end">VARCHAR(10) CHECK</text>
+    <line x1="520" y1="484" x2="900" y2="484" class="row-rule"/>
+    <text x="536" y="502" class="col">amount</text>
+    <text x="884" y="502" class="type" text-anchor="end">NUMERIC(12,2)</text>
+    <line x1="520" y1="510" x2="900" y2="510" class="row-rule"/>
+    <text x="536" y="528" class="col">description</text>
+    <text x="884" y="528" class="type" text-anchor="end">TEXT NULL</text>
+    <line x1="520" y1="536" x2="900" y2="536" class="row-rule"/>
+    <text x="536" y="554" class="col">transaction_date</text>
+    <text x="884" y="554" class="type" text-anchor="end">DATE</text>
+    <line x1="520" y1="562" x2="900" y2="562" class="row-rule"/>
+    <text x="536" y="580" class="col">created_at</text>
+    <text x="884" y="580" class="type" text-anchor="end">TIMESTAMP</text>
+  </g>
+
+  <!-- users.id (1) to accounts.user_id (N) -->
+  <path class="rel" d="M 60 133 H 24 V 469 H 60"/>
+  <text x="44" y="125" class="card" text-anchor="middle">1</text>
+  <text x="44" y="461" class="card" text-anchor="middle">N</text>
+  <text x="42" y="301" class="rel-label" transform="rotate(-90 42 301)" text-anchor="middle">ON DELETE CASCADE</text>
+
+  <!-- accounts.id (1) to transactions.account_id (N) -->
+  <path class="rel" d="M 380 443 H 450 V 419 H 520"/>
+  <text x="392" y="435" class="card">1</text>
+  <text x="504" y="411" class="card" text-anchor="end">N</text>
+  <text x="450" y="417" class="rel-label" text-anchor="middle">ON DELETE CASCADE</text>
+
+  <!-- categories.id (1) to transactions.category_id (N) -->
+  <path class="rel" d="M 900 133 H 948 V 445 H 900"/>
+  <text x="908" y="125" class="card">1</text>
+  <text x="908" y="437" class="card">N</text>
+  <text x="944" y="289" class="rel-label" transform="rotate(-90 944 289)" text-anchor="middle">ON DELETE RESTRICT</text>
+
+  <text x="60" y="640" class="legend">A user owns many accounts. An account holds many transactions. A category classifies many transactions.</text>
+  <text x="60" y="660" class="legend">transactions.category_id is NULL only for type = 'transfer' (CHECK transactions_category_required_check).</text>
+  <text x="60" y="680" class="legend">accounts.type: cash | bank | e-wallet &#8212; categories.type: income | expense &#8212; transactions.type: income | expense | transfer (three separate enums).</text>
+</svg>

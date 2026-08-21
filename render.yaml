@@ -1,0 +1,62 @@
+# ---------------------------------------------------------------------------
+# Render blueprint for FinTrack API.
+#
+# Deploy with: Render dashboard -> New -> Blueprint -> point at this repo.
+# It provisions the Postgres instance and the web service together, and wires
+# DATABASE_URL between them, so no connection string is ever committed.
+#
+# `prisma migrate deploy` runs at build time: it applies
+# prisma/migrations/**/migration.sql and never resets data, unlike
+# `migrate dev`. Seeding is a one-off manual step - see README.md.
+# ---------------------------------------------------------------------------
+
+databases:
+  - name: fintrack-db
+    databaseName: fintrack
+    user: fintrack
+    plan: free
+
+services:
+  - type: web
+    name: fintrack-api
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    buildCommand: npm ci && npm run build && npx prisma migrate deploy
+    startCommand: npm run start:prod
+    # Render restarts the instance if this stops returning 200. The route pings
+    # the database, so a dead connection is caught rather than masked.
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Injected by Render from the database above - never hardcoded.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fintrack-db
+          property: connectionString
+
+      # Generated once by Render and kept in its secret store.
+      - key: JWT_SECRET
+        generateValue: true
+
+      - key: JWT_EXPIRES_IN
+        value: 1h
+      - key: BCRYPT_SALT_ROUNDS
+        value: 10
+      - key: MONEY_DECIMAL_PLACES
+        value: 2
+
+      # Replace with the real front-end origin(s) before going live.
+      # "*" is refused in production by src/app.setup.ts.
+      - key: CORS_ORIGINS
+        value: https://fintrack-web.example.com
+
+      - key: LOGIN_RATE_LIMIT
+        value: 5
+      - key: LOGIN_RATE_TTL_SECONDS
+        value: 60
+
+      # PORT is supplied by Render automatically; main.ts reads it.

@@ -1,4 +1,8 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  // "prisma" is excluded so seed.ts does not pull the inferred rootDir up to the
+  // project root, which would emit dist/src/main.js instead of dist/main.js and
+  // break `node dist/main`. The seed is run by ts-node, never compiled.
+  // It is still type-checked by `tsc --noEmit -p tsconfig.json`.
+  "exclude": ["node_modules", "test", "dist", "prisma", "**/*spec.ts"]
 }

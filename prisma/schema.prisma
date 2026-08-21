@@ -1,0 +1,96 @@
+// ============================================================================
+// FinTrack API - Prisma schema
+// ----------------------------------------------------------------------------
+// This is a 1:1 mirror of db/schema.sql. Table names, column names, types,
+// nullability, foreign keys and referential actions are all identical - only
+// the syntax differs. Nothing is renamed on the way in: model fields are
+// snake_case exactly like the SQL columns, so the JSON the API returns has the
+// same shape as a row you would SELECT by hand.
+//
+// The three CHECK constraints (accounts.type, categories.type,
+// transactions.type / amount / category-required) cannot be expressed in PSL.
+// They live in prisma/migrations/.../migration.sql, which is hand-written to
+// match db/schema.sql, and are re-enforced in the DTO layer by class-validator.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// users - the person using FinTrack.
+model User {
+  id         Int      @id @default(autoincrement())
+  name       String   @db.VarChar(100)
+  email      String   @unique(map: "users_email_key") @db.VarChar(255)
+  /// bcrypt hash, never plaintext. Excluded from every API response.
+  password   String   @db.VarChar(255)
+  /// 'user' | 'admin' - CHECK constraint users_role_check
+  role       String   @default("user") @db.VarChar(10)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+
+  accounts Account[]
+
+  @@map("users")
+}
+
+/// accounts - a place money physically sits.
+model Account {
+  id      Int    @id @default(autoincrement())
+  user_id Int
+  name    String @db.VarChar(100)
+  /// 'cash' | 'bank' | 'e-wallet' - CHECK constraint accounts_type_check
+  type    String @db.VarChar(10)
+  /// Running balance. Decimal, never Float, so money never drifts.
+  balance    Decimal  @default(0.00) @db.Decimal(12, 2)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+
+  user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "accounts_user_id_fkey")
+  transactions Transaction[]
+
+  @@unique([user_id, name], map: "accounts_user_id_name_key")
+  @@index([user_id], map: "idx_accounts_user_id")
+  @@map("accounts")
+}
+
+/// categories - shared lookup table. NOTE: its `type` enum is only
+/// income|expense, unlike transactions.type which also allows 'transfer'.
+model Category {
+  id   Int    @id @default(autoincrement())
+  name String @db.VarChar(60)
+  /// 'income' | 'expense' - CHECK constraint categories_type_check
+  type String @db.VarChar(10)
+
+  transactions Transaction[]
+
+  @@unique([name, type], map: "categories_name_type_key")
+  @@map("categories")
+}
+
+/// transactions - one money movement. BigInt id (BIGSERIAL) because this is
+/// the table that grows without bound.
+model Transaction {
+  id          BigInt @id @default(autoincrement())
+  account_id  Int
+  /// NULL only for 'transfer' rows - CHECK transactions_category_required_check
+  category_id Int?
+  /// 'income' | 'expense' | 'transfer' - CHECK transactions_type_check
+  type String @db.VarChar(10)
+  /// Always positive - CHECK transactions_amount_check. Direction lives in `type`.
+  amount           Decimal   @db.Decimal(12, 2)
+  description      String?
+  transaction_date DateTime  @db.Date
+  created_at       DateTime  @default(now()) @db.Timestamp(6)
+
+  account  Account   @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "transactions_account_id_fkey")
+  category Category? @relation(fields: [category_id], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "transactions_category_id_fkey")
+
+  @@index([account_id], map: "idx_transactions_account_id")
+  @@index([category_id], map: "idx_transactions_category_id")
+  @@index([transaction_date(sort: Desc)], map: "idx_transactions_date")
+  @@map("transactions")
+}
